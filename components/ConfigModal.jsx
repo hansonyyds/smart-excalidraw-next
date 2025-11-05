@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { configManager } from '../lib/config-manager.js';
 
-export default function ConfigModal({ isOpen, onClose, onSave, initialConfig }) {
+export default function ConfigModal({ isOpen, onClose, onSave, initialConfig, showManager = false }) {
   const [config, setConfig] = useState({
     name: '',
     type: 'openai',
@@ -92,7 +93,7 @@ export default function ConfigModal({ isOpen, onClose, onSave, initialConfig }) 
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black bg-opacity-50"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
       />
 

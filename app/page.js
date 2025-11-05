@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Chat from '@/components/Chat';
 import CodeEditor from '@/components/CodeEditor';
-import ConfigModal from '@/components/ConfigModal';
+import ConfigManager from '@/components/ConfigManager';
 import ContactModal from '@/components/ContactModal';
-import { getConfig, saveConfig, isConfigValid } from '@/lib/config';
+import Notification from '@/components/Notification';
+import { getConfig, isConfigValid } from '@/lib/config';
 import { optimizeExcalidrawCode } from '@/lib/optimizeArrows';
 
 // Dynamically import ExcalidrawCanvas to avoid SSR issues
@@ -16,7 +17,7 @@ const ExcalidrawCanvas = dynamic(() => import('@/components/ExcalidrawCanvas'), 
 
 export default function Home() {
   const [config, setConfig] = useState(null);
-  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isConfigManagerOpen, setIsConfigManagerOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [elements, setElements] = useState([]);
@@ -27,13 +28,30 @@ export default function Home() {
   const [isResizingHorizontal, setIsResizingHorizontal] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [jsonError, setJsonError] = useState(null);
+  const [notification, setNotification] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
 
-  // Load config on mount
+  // Load config on mount and listen for config changes
   useEffect(() => {
     const savedConfig = getConfig();
     if (savedConfig) {
       setConfig(savedConfig);
     }
+
+    // Listen for storage changes to sync across tabs
+    const handleStorageChange = (e) => {
+      if (e.key === 'smart-excalidraw-active-config' || e.key === 'smart-excalidraw-configs') {
+        const newConfig = getConfig();
+        setConfig(newConfig);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Post-process Excalidraw code: remove markdown wrappers and fix unescaped quotes
@@ -118,8 +136,13 @@ export default function Home() {
   // Handle sending a message (single-turn)
   const handleSendMessage = async (userMessage, chartType = 'auto') => {
     if (!isConfigValid(config)) {
-      alert('请先配置您的 LLM 提供商');
-      setIsConfigModalOpen(true);
+      setNotification({
+        isOpen: true,
+        title: '配置提醒',
+        message: '请先配置您的 LLM 提供商',
+        type: 'warning'
+      });
+      setIsConfigManagerOpen(true);
       return;
     }
 
@@ -300,10 +323,11 @@ export default function Home() {
     setGeneratedCode('');
   };
 
-  // Handle saving config
-  const handleSaveConfig = (newConfig) => {
-    saveConfig(newConfig);
-    setConfig(newConfig);
+  // Handle config selection from manager
+  const handleConfigSelect = (selectedConfig) => {
+    if (selectedConfig) {
+      setConfig(selectedConfig);
+    }
   };
 
   // Handle horizontal resizing (left panel vs right panel)
@@ -318,7 +342,7 @@ export default function Home() {
       
       const percentage = (e.clientX / window.innerWidth) * 100;
       
-      // Clamp between 30% and 70%
+      // 可调节的范围
       setLeftPanelWidth(Math.min(Math.max(percentage, 20), 80));
     };
 
@@ -347,19 +371,21 @@ export default function Home() {
         </div>
         <div className="flex items-center space-x-3">
           {config && isConfigValid(config) && (
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 rounded border border-gray-300">
-              <div className="w-2 h-2 bg-gray-900 rounded-full"></div>
-              <span className="text-xs text-gray-900 font-medium">
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 rounded border border-green-300">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-xs text-green-900 font-medium">
                 {config.name || config.type} - {config.model}
               </span>
             </div>
           )}
-          <button
-            onClick={() => setIsConfigModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-900 border border-gray-900 rounded hover:bg-gray-800 transition-colors duration-200"
-          >
-            配置 LLM
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsConfigManagerOpen(true)}
+              className="px-4 py-2 text-sm font-medium text-white bg-gray-900 border border-gray-900 rounded hover:bg-gray-800 transition-colors duration-200"
+            >
+              管理配置
+            </button>
+          </div>
         </div>
       </header>
 
@@ -427,12 +453,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Config Modal */}
-      <ConfigModal
-        isOpen={isConfigModalOpen}
-        onClose={() => setIsConfigModalOpen(false)}
-        onSave={handleSaveConfig}
-        initialConfig={config}
+      {/* Config Manager Modal */}
+      <ConfigManager
+        isOpen={isConfigManagerOpen}
+        onClose={() => setIsConfigManagerOpen(false)}
+        onConfigSelect={handleConfigSelect}
       />
 
       {/* Footer */}
@@ -470,6 +495,15 @@ export default function Home() {
       <ContactModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
+      />
+
+      {/* Notification */}
+      <Notification
+        isOpen={notification.isOpen}
+        onClose={() => setNotification({ ...notification, isOpen: false })}
+        title={notification.title}
+        message={notification.message}
+        type={notification.type}
       />
     </div>
   );

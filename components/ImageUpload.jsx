@@ -284,7 +284,7 @@ export default function ImageUpload({ onImageSelect, isGenerating, chartType, on
 
             {/* 状态指示器 */}
             {uploadStatus === 'uploading' && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+              <div className="absolute inset-0 flex items-center justify-center bg-white/75">
                 <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
             )}
